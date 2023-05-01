@@ -163,6 +163,7 @@ template<int n>
 string to_string(oper<n> x){
 	string res="|";
 	for(int i=0;i<n;i++){
+		res.push_back('\n');
 		res.push_back('[');
 		for(int j=0;j<n;j++){
 			res+=to_string(x[i][j].real());
@@ -249,6 +250,24 @@ tuple<lf,lf,lf> quat2xyz(lf w,lf x,lf y,lf z){
 	};
 }
 
+template<int qn,int n=(1<<qn)>
+oper<n> graph(vector<pair<int,int>> vec){
+	oper<n> res;
+	for(int i=0;i<n;i++){
+		int flag=0;
+		for(auto[x,y]:vec)
+			flag^=i>>(qn-1-x)&i>>(qn-1-y);
+		res[i][i]=flag&1?-1:1;
+	}
+	return res;
+}
+
+template<int n,int m>
+ket<n> extract(ket<m> x,vector<int> vec){
+	sort(vec.begin(),vec.end());
+	
+}
+
 int main(){
 	ket zero; zero[0]=1; zero[1]=0;
 	ket one; one[0]=0; one[1]=1;
@@ -256,24 +275,63 @@ int main(){
 	oper X; X[0][0]=0; X[0][1]=1; X[1][0]=1; X[1][1]=0;
 	oper Y; Y[0][0]=0; Y[0][1]=lc(0,-1); Y[1][0]=lc(0,1); Y[1][1]=0;
 	oper Z; Z[0][0]=1; Z[0][1]=0; Z[1][0]=0; Z[1][1]=-1;
-	//cout<<X*Y*Z;
+	oper H = (X+Z)*sqrt(.5);
+	oper<4> CX; CX[0][0]=1; CX[1][1]=1; CX[2][3]=1; CX[3][2]=1;
+	oper<4> CZ; CZ[0][0]=1; CZ[1][1]=1; CZ[2][2]=1; CZ[3][3]=-1;
+	ket plus; plus[0]=sqrt(.5); plus[1]=sqrt(.5);
+	lf pi =acos(-1);
 	
-	lf w=0,x=rand(),y=rand(),z=rand();
-	lf n=sqrt(w*w+x*x+y*y+z*z);
-	w/=n; x/=n; y/=n; z/=n;
-	auto[t,u,v]=quat2zyx(w,x,y,z);cout<<'!'<<t<<' '<<u<<' '<<v<<endl;
-	auto[tt,uu,vv]=quat2xyz(w,x,y,z);cout<<'!'<<tt<<' '<<uu<<' '<<vv<<endl;
+	lf phi=pi/4;
+	oper grh=graph<5>({pair{0,2},pair{1,2},pair{2,3},pair{3,4}});
+	oper m1=I%X%I%I%I;
+	oper m2=I%I%X%I%I;
+	oper t1=Z%I%I%Z%I;
+	oper t2=I%I%I%X%Z;
+	oper m3=I%I%I%(rot(-phi,Z)*X*rot(phi,Z))%I;
+	oper t3=I%I%I%I%Z;
 	
-	cout<<rot(tt,X)*rot(uu,Y)*rot(vv,Z) << "\n" << rot(v,Z)*rot(u,Y)*rot(t,X) << "\n" << I*w-X*lc(0,x)-Y*lc(0,y)-Z*lc(0,z);
+	ket psi=plus%zero;
+	ket hid=psi%plus%plus%plus;
+	hid=grh*hid;
+	for(int i1=0;i1<2;i1++)for(int i2=0;i2<2;i2++)for(int i3=0;i3<2;i3++){
+		ket post=m2.measure(m1.measure(hid)[i1])[i2];
+		if(i2) post=t2*post;
+		if(i1) post=t1*post;
+		post=m3.measure(post)[i3];
+		post=(I%I%I%I%H)*post;
+		if(i3) post=t3*post;
+		cout<<post<<endl;
+	}
 	
 	/*
-	lf a=rand(),b=rand(),c=rand(),d=rand();
-	lf r=sqrt(a*a+b*b+c*c+d*d);
-	a/=r;b/=r;c/=r;d/=r;
-	ket psi; psi[0]=lc(a,b); psi[1]=lc(c,d);
-	auto x=scalar(!psi*X*psi); // = <psi|X|psi>
-	auto y=scalar(!psi*Y*psi);
-	auto z=scalar(!psi*Z*psi);
-	cout<<x*x+y*y+z*z;
+	oper grh=graph<4>({pair{0,2},pair{1,2},pair{2,3}});
+	oper m1=I%X%I%I;
+	oper m2=I%I%X%I;
+	oper t1=Z%I%I%Z;
+	oper t2=I%I%I%X;
+	
+	ket psi=plus%zero;
+	ket hid=psi%plus%plus;
+	hid=grh*hid;
+	for(int i1=0;i1<2;i1++)for(int i2=0;i2<2;i2++){
+		ket post=m2.measure(m1.measure(hid)[i1])[i2];
+		if(i2) post=t2*post;
+		if(i1) post=t1*post;
+		cout<<post<<endl;
+	}
+	
+	/*
+	oper<4> m1=(rot(-pi,Z)*X*rot(pi,Z))%I;
+	oper<4> t1=I%Z;
+	
+	ket psi=plus;
+	ket<4> hid=psi%plus;
+	hid = CZ*hid;
+	for(int i=0;i<2;i++){
+		ket<4> post=m1.measure(hid)[i];
+		post = (I%H)*post;
+		if(i) post = t1*post;
+		cout<<post<<endl;
+	}
 	*/
 }
